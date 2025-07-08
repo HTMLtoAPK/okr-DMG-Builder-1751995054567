@@ -1,0 +1,40 @@
+
+name: Build DMG
+on: [push]
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    - name: Install packaging tools
+      run: python -m pip install --upgrade pip setuptools "py2app==0.28.7" psutil certifi
+    - name: Install user dependencies
+      run: |
+        if [ -f requirements.txt ]; then
+          echo "requirements.txt found, installing dependencies."
+          python -m pip install -r requirements.txt
+        else
+          echo "No requirements.txt found, skipping."
+        fi
+    - name: Build the .app
+      run: python setup.py py2app
+    - name: Install create-dmg
+      run: brew install create-dmg
+    - name: Build the .dmg
+      run: |
+        create-dmg \
+          --volname "okr" --app-drop-link 600 185 \
+          "okr.dmg" "dist/"
+    - name: Create Release and Upload DMG
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: build-${{ github.run_id }}
+        name: "Build ${{ github.run_id }}"
+        files: |
+          okr.dmg
+        prerelease: true
